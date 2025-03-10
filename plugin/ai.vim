@@ -1,7 +1,7 @@
-" 📂 مسیر فایل تنظیمات
+" 📂 Path to the configuration file
 let g:ai_config_file = expand("~/.vim-ai-config")
 
-" 📌 خواندن تنظیمات ذخیره‌شده
+" 📌 Load saved settings
 function! LoadAIConfig()
     if filereadable(g:ai_config_file)
         let l:config = readfile(g:ai_config_file)
@@ -15,19 +15,19 @@ function! LoadAIConfig()
     endif
 endfunction
 
-" 📌 ذخیره تنظیمات AI در فایل
+" 📌 Save AI settings to the file
 function! SaveAIConfig()
     call writefile([g:ai_model, g:ai_api_key], g:ai_config_file)
 endfunction
 
-" 📌 دریافت لیست مدل‌های OpenAI
+" 📌 Retrieve a list of OpenAI models
 function! GetAvailableModels()
     call LoadAIConfig()
 
     if g:ai_api_key == "" || g:ai_api_key == v:null
-        let g:ai_api_key = inputsecret("🔑 لطفاً API Key خود را وارد کنید: ")
+        let g:ai_api_key = inputsecret("🔑 Please enter your API Key: ")
         if g:ai_api_key == ""
-            echo "❌ API Key وارد نشد. عملیات لغو شد."
+            echo "❌ API Key was not entered. Operation canceled."
             return []
         endif
         call SaveAIConfig()
@@ -38,83 +38,82 @@ function! GetAvailableModels()
     let l:output = system(l:command)
 
     if l:output =~ "❌"
-        echo "❌ خطا در دریافت مدل‌های OpenAI: " . l:output
-        if l:output =~ "زمان درخواست تمام شد"
-            echo "⏳ پیشنهاد: اینترنت خود را بررسی کنید یا دوباره امتحان کنید."
+        echo "❌ Error retrieving OpenAI models: " . l:output
+        if l:output =~ "Request timeout"
+            echo "⏳ Suggestion: Check your internet connection or try again."
         elseif l:output =~ "Invalid API key"
-            echo "🔑 لطفاً API Key معتبر وارد کنید."
+            echo "🔑 Please enter a valid API Key."
         endif
         return []
     endif
 
-    return json_decode(l:output)  " تبدیل خروجی JSON به لیست
+    return json_decode(l:output)  " Convert JSON output to a list
 endfunction
 
-
-" 📌 تنظیم اولیه AI
+" 📌 Initial AI setup
 function! AISetup()
     let l:models = GetAvailableModels()
 
     if empty(l:models)
-        echo "⚠️ هیچ مدل GPT در دسترس نیست یا دسترسی ندارید!"
+        echo "⚠️ No GPT models are available or you lack access!"
         return
     endif
 
-    echo "🔍 مدل‌های موجود:"
+    echo "🔍 Available models:"
     let l:model_index = 1
     for model in l:models
         echo "[" . l:model_index . "] " . model
         let l:model_index += 1
     endfor
 
-    let l:choice = input("شماره مدل موردنظر را انتخاب کنید: ")
+    let l:choice = input("Select the model number: ")
 
     if l:choice =~ '^\d\+$' && l:choice > 0 && l:choice <= len(l:models)
         let g:ai_model = l:models[l:choice - 1]
     else
-        echo "❌ انتخاب نامعتبر!"
+        echo "❌ Invalid selection!"
         return
     endif
 
     call SaveAIConfig()
-    echo "✅ مدل انتخاب‌شده: " . g:ai_model
+    echo "✅ Selected model: " . g:ai_model
 endfunction
 
-" 📌 تغییر مدل بدون تغییر API Key
+" 📌 Change the model without modifying the API Key
 function! AIChangeModel()
     let l:models = GetAvailableModels()
 
     if empty(l:models)
-        echo "⚠️ هیچ مدل GPT در دسترس نیست!"
+        echo "⚠️ No GPT models are available!"
         return
     endif
 
-    echo "🔍 مدل‌های موجود:"
+    echo "🔍 Available models:"
     let l:model_index = 1
     for model in l:models
         echo "[" . l:model_index . "] " . model
         let l:model_index += 1
     endfor
 
-    let l:choice = input("مدل جدید را انتخاب کنید: ")
+    let l:choice = input("Select the new model: ")
 
     if l:choice =~ '^\d\+$' && l:choice > 0 && l:choice <= len(l:models)
         let g:ai_model = l:models[l:choice - 1]
     else
-        echo "❌ انتخاب نامعتبر!"
+        echo "❌ Invalid selection!"
         return
     endif
 
     call SaveAIConfig()
-    echo "✅ مدل AI تغییر کرد به: " . g:ai_model
+    echo "✅ AI model changed to: " . g:ai_model
 endfunction
 
-" 📌 اجرای درخواست AI
+" 📌 Execute AI request
 function! AICommand(...)
     call LoadAIConfig()
 
     if g:ai_model == "" || g:ai_api_key == ""
-        echo "⚠️ لطفاً ابتدا دستور :AISetup را اجرا کنید."
+        echo "⚠️ Please run :AISetup first."
         return
     endif
 
@@ -123,15 +122,15 @@ function! AICommand(...)
     let l:command = "python3 " . l:python_script . " chat " . shellescape(l:args) . " " . g:ai_model . " " . g:ai_api_key
     let l:output = system(l:command)
 
-    " نمایش نتیجه در یک buffer جدید
+    " Display the result in a new buffer
     new
     put =l:output
 endfunction
 
-" 📌 ثبت دستورات Vim
+" 📌 Register Vim commands
 command! AISetup call AISetup()
 command! AIChangeModel call AIChangeModel()
 command! -nargs=+ AI call AICommand(<f-args>)
 
-" 📌 بارگیری خودکار تنظیمات هنگام اجرای Vim
+" 📌 Automatically load settings when Vim starts
 autocmd VimEnter * call LoadAIConfig()
